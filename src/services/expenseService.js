@@ -20,16 +20,7 @@ export const registerUser = async (email) => {
   }
 };
 
-export const subscribeToUsers = (callback) => {
-  if (!db) return () => {};
-  return onSnapshot(collection(db, USERS_COLLECTION), (snapshot) => {
-    const users = [];
-    snapshot.forEach((doc) => {
-      users.push(doc.data().email);
-    });
-    callback(users);
-  });
-};
+
 
 // --- EXPENSES ---
 export const addExpense = async (expenseData, currentUser, groupId) => {

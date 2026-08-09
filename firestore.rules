@@ -26,8 +26,26 @@ service cloud.firestore {
     match /expenses/{expenseId} {
       // To create an expense, user must be a member of the new expense's group
       allow create: if request.auth != null && isGroupMember(request.resource.data.groupId);
-      // To read or modify an existing expense, user must be a member of its group
-      allow read, update, delete: if request.auth != null && isGroupMember(resource.data.groupId);
+      allow read, delete: if request.auth != null && isGroupMember(resource.data.groupId);
+      allow update: if request.auth != null 
+                    && isGroupMember(resource.data.groupId) 
+                    && request.resource.data.groupId == resource.data.groupId;
+    }
+
+    match /budgets/{budgetId} {
+      allow create: if request.auth != null && isGroupMember(request.resource.data.groupId);
+      allow read, delete: if request.auth != null && isGroupMember(resource.data.groupId);
+      allow update: if request.auth != null 
+                    && isGroupMember(resource.data.groupId) 
+                    && request.resource.data.groupId == resource.data.groupId;
+    }
+    
+    match /recurring_expenses/{id} {
+      allow create: if request.auth != null && isGroupMember(request.resource.data.groupId);
+      allow read, delete: if request.auth != null && isGroupMember(resource.data.groupId);
+      allow update: if request.auth != null 
+                    && isGroupMember(resource.data.groupId) 
+                    && request.resource.data.groupId == resource.data.groupId;
     }
     
     match /{document=**} {

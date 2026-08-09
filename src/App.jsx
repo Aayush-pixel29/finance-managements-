@@ -11,6 +11,7 @@ import { subscribeToUserGroups, createGroup } from './services/groupService';
 import { onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import { auth } from './firebase';
 import { Home, Target, Users } from 'lucide-react';
+import { isSameMonth } from 'date-fns';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -159,7 +160,7 @@ function App() {
         ) : (
           <>
             {activeTab === 'dashboard' && <Dashboard currentUser={currentUser} onLogout={handleLogout} globalExpenses={globalExpenses} currentGroupId={currentGroupId} currentGroupName={currentGroupObj?.name || 'Loading...'} onOpenMenu={() => setIsSidebarOpen(true)} />}
-            {activeTab === 'budgets' && <Budgets currentMonthExpenses={globalExpenses.filter(e => new Date(e.createdAt).getMonth() === new Date().getMonth())} currentGroupId={currentGroupId} />}
+            {activeTab === 'budgets' && <Budgets currentMonthExpenses={globalExpenses.filter(e => isSameMonth(new Date(e.createdAt), new Date()))} currentGroupId={currentGroupId} />}
             {activeTab === 'balances' && <Balances expenses={globalExpenses} currentUser={currentUser} familyMembers={familyMembers} />}
           </>
         )}

@@ -1,34 +1,10 @@
 import React, { useState } from 'react';
 import { UserCircle2 } from 'lucide-react';
-import { loginWithEmail, registerWithEmail, resetPassword, loginWithGoogle } from '../services/authService';
+import { loginWithGoogle } from '../services/authService';
 
 export default function Login() {
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setMessage('');
-    setLoading(true);
-
-    try {
-      if (isRegistering) {
-        await registerWithEmail(email, password);
-      } else {
-        await loginWithEmail(email, password);
-      }
-      // App.jsx will automatically detect the login and switch the screen
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'An error occurred');
-    }
-    setLoading(false);
-  };
 
   const handleGoogleSignIn = async () => {
     setError('');
@@ -43,20 +19,6 @@ export default function Login() {
     setLoading(false);
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Please enter your email address first.');
-      return;
-    }
-    setError('');
-    try {
-      await resetPassword(email);
-      setMessage('Password reset email sent (check spam folder).');
-    } catch (err) {
-      setError(err.message || 'Failed to send reset email');
-    }
-  };
-
   return (
     <div className="glass-card animate-slide-up" style={{ marginTop: 'auto', marginBottom: 'auto' }}>
       <div className="text-center mb-6">
@@ -64,52 +26,15 @@ export default function Login() {
           <UserCircle2 size={64} style={{ color: 'var(--primary)' }} />
         </div>
         <h2 className="text-2xl font-bold mb-2">Family Expenses</h2>
-        <p className="text-muted">{isRegistering ? 'Create a new account' : 'Sign in to continue'}</p>
+        <p className="text-muted">Sign in to continue</p>
       </div>
 
       {error && <div style={{ color: 'var(--danger)', marginBottom: '12px', fontSize: '0.9rem', textAlign: 'center' }}>{error}</div>}
-      {message && <div style={{ color: 'var(--success)', marginBottom: '12px', fontSize: '0.9rem', textAlign: 'center' }}>{message}</div>}
-
-      <form onSubmit={handleSubmit}>
-        <div className="input-group">
-          <label>Email Address</label>
-          <input
-            type="email"
-            className="input-field"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoFocus
-          />
-        </div>
-        <div className="input-group">
-          <label>Password</label>
-          <input
-            type="password"
-            className="input-field"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-        
-        <button type="submit" className="btn" style={{ marginTop: '24px' }} disabled={loading}>
-          {loading ? 'Processing...' : (isRegistering ? 'Register' : 'Login')}
-        </button>
-      </form>
-
-      <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0' }}>
-        <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-        <span style={{ padding: '0 10px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>OR</span>
-        <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-      </div>
 
       <button 
         type="button" 
         className="btn" 
-        style={{ background: 'white', color: '#333' }} 
+        style={{ background: 'white', color: '#333', marginTop: '24px' }} 
         onClick={handleGoogleSignIn}
         disabled={loading}
       >
@@ -121,24 +46,6 @@ export default function Login() {
         </svg>
         Sign in with Google
       </button>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', fontSize: '0.9rem' }}>
-        <button 
-          onClick={() => setIsRegistering(!isRegistering)}
-          style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}
-        >
-          {isRegistering ? 'Already have an account? Login' : 'Need an account? Register'}
-        </button>
-
-        {!isRegistering && (
-          <button 
-            onClick={handleForgotPassword}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-          >
-            Forgot Password?
-          </button>
-        )}
-      </div>
     </div>
   );
 }
