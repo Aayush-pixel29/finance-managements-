@@ -1,11 +1,30 @@
-import React from 'react';
-import { X, User, LogOut, Plus, Folder } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, User, LogOut, Plus, Folder, UserPlus } from 'lucide-react';
+import { addMemberToGroup } from '../services/groupService';
 
 export default function Sidebar({ 
   isOpen, onClose, familyMembers, currentUser, onSelectUser, onLogout,
   userGroups = [], currentGroupId, onSelectGroup, onCreateGroupClick
 }) {
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleInvite = async () => {
+    if (!inviteEmail || !currentGroupId) return;
+    setInviting(true);
+    try {
+      await addMemberToGroup(currentGroupId, inviteEmail);
+      setInviteEmail('');
+      setShowInvite(false);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to invite member");
+    }
+    setInviting(false);
+  };
 
   return (
     <>
@@ -61,7 +80,29 @@ export default function Sidebar({
 
 
         {/* --- MEMBERS SECTION --- */}
-        <h3 className="text-sm font-bold text-muted mb-2 flex items-center gap-1"><User size={14} /> Group Members</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <h3 className="text-sm font-bold text-muted flex items-center gap-1"><User size={14} /> Group Members</h3>
+          <button onClick={() => setShowInvite(!showInvite)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px' }}>
+            <UserPlus size={16} />
+          </button>
+        </div>
+        
+        {showInvite && (
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <input 
+              type="email" 
+              className="input-field" 
+              placeholder="Friend's email..." 
+              value={inviteEmail} 
+              onChange={(e) => setInviteEmail(e.target.value)}
+              style={{ padding: '8px 12px', flex: 1 }}
+            />
+            <button className="btn" onClick={handleInvite} disabled={inviting} style={{ width: 'auto', padding: '8px 16px' }}>
+              Add
+            </button>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
           {familyMembers.map((email) => {
             const isMe = email === currentUser;

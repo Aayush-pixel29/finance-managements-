@@ -20,6 +20,20 @@ export const createGroup = async (name, currentUser, initialMembers = []) => {
   }
 };
 
+export const addMemberToGroup = async (groupId, email) => {
+  if (!db) return;
+  try {
+    const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+    // Use arrayUnion to add without duplicates
+    await updateDoc(groupRef, {
+      members: arrayUnion(email.toLowerCase())
+    });
+  } catch (error) {
+    console.error("Error adding member: ", error);
+    throw error;
+  }
+};
+
 export const subscribeToUserGroups = (currentUser, callback) => {
   if (!db) return () => {};
   const q = query(collection(db, GROUPS_COLLECTION), where("members", "array-contains", currentUser));
@@ -32,15 +46,3 @@ export const subscribeToUserGroups = (currentUser, callback) => {
   });
 };
 
-export const addMemberToGroup = async (groupId, email) => {
-  if (!db) return;
-  try {
-    const groupRef = doc(db, GROUPS_COLLECTION, groupId);
-    await updateDoc(groupRef, {
-      members: arrayUnion(email)
-    });
-  } catch (error) {
-    console.error("Error adding member: ", error);
-    throw error;
-  }
-};

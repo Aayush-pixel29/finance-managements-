@@ -1,9 +1,37 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function getUserEmail() {
+      // Fallback to lowercase to ensure consistency with our arrays
+      return request.auth.token.email;
+    }
+    
+    function isGroupMember(groupId) {
+      return getUserEmail() in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+    }
+
+    match /users/{userId} {
+      // Users can only write their own profile document
+      allow read, write: if request.auth != null && getUserEmail() == userId;
+    }
+    
+    match /groups/{groupId} {
+      // User can create a group if they are logged in
+      allow create: if request.auth != null;
+      // User can read or update a group if their email is in the members array
+      allow read, update, delete: if request.auth != null && (getUserEmail() in resource.data.members);
+    }
+
+    match /expenses/{expenseId} {
+      // To create an expense, user must be a member of the new expense's group
+      allow create: if request.auth != null && isGroupMember(request.resource.data.groupId);
+      // To read or modify an existing expense, user must be a member of its group
+      allow read, update, delete: if request.auth != null && isGroupMember(resource.data.groupId);
+    }
+    
     match /{document=**} {
-      // Allow any logged in user to read and write
-      allow read, write: if request.auth != null;
+      allow read, write: if false; // Deny all other access by default
     }
   }
 }
