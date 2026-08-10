@@ -4,7 +4,7 @@ service cloud.firestore {
     
     function getUserEmail() {
       // Fallback to lowercase to ensure consistency with our arrays
-      return request.auth.token.email;
+      return request.auth.token.email.lower();
     }
     
     function isGroupMember(groupId) {

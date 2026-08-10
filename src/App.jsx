@@ -34,9 +34,10 @@ function App() {
     getRedirectResult(auth).catch((error) => console.error("Redirect auth error:", error));
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user.email);
-        registerUser(user.email);
+      if (user && user.email) {
+        const lowerEmail = user.email.toLowerCase();
+        setCurrentUser(lowerEmail);
+        registerUser(lowerEmail);
       } else {
         setCurrentUser(null);
       }
