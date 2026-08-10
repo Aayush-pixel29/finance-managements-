@@ -1,17 +1,55 @@
 import React, { useState } from 'react';
 import { UserCircle2 } from 'lucide-react';
-import { loginWithGoogle } from '../services/authService';
+import { loginWithGoogle, loginWithEmail, registerWithEmail } from '../services/authService';
 
 export default function Login() {
+  const [isRegister, setIsRegister] = useState(false);
+  const [emailOrMobile, setEmailOrMobile] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const formatEmail = (input) => {
+    // If the input is exactly 10 digits, convert it to a fake email for Firebase
+    if (/^\d{10}$/.test(input.trim())) {
+      return `${input.trim()}@family.app`;
+    }
+    return input.trim();
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    const formattedEmail = formatEmail(emailOrMobile);
+
+    try {
+      if (isRegister) {
+        await registerWithEmail(formattedEmail, password);
+      } else {
+        await loginWithEmail(formattedEmail, password);
+      }
+    } catch (err) {
+      console.error(err);
+      if (err.code === 'auth/invalid-email') {
+        setError('Invalid email or mobile format.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('This email or mobile number is already registered.');
+      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        setError('Incorrect email/mobile or password.');
+      } else {
+        setError(err.message || 'Authentication failed.');
+      }
+    }
+    setLoading(false);
+  };
 
   const handleGoogleSignIn = async () => {
     setError('');
     setLoading(true);
     try {
       await loginWithGoogle();
-      // For redirect auth, this line may not be reached as page redirects
     } catch (err) {
       console.error(err);
       setError(err.message || 'Google sign-in failed');
@@ -26,15 +64,60 @@ export default function Login() {
           <UserCircle2 size={64} style={{ color: 'var(--primary)' }} />
         </div>
         <h2 className="text-2xl font-bold mb-2">Family Expenses</h2>
-        <p className="text-muted">Sign in to continue</p>
+        <p className="text-muted">{isRegister ? 'Create an account' : 'Sign in to continue'}</p>
       </div>
 
-      {error && <div style={{ color: 'var(--danger)', marginBottom: '12px', fontSize: '0.9rem', textAlign: 'center' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--danger)', marginBottom: '16px', fontSize: '0.9rem', textAlign: 'center', padding: '8px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' }}>{error}</div>}
+
+      <form onSubmit={handleSubmit}>
+        <div className="input-group">
+          <label>Email or Mobile Number (10 digits)</label>
+          <input
+            type="text"
+            className="input-field"
+            placeholder="e.g. 9876543210 or name@email.com"
+            value={emailOrMobile}
+            onChange={(e) => setEmailOrMobile(e.target.value)}
+            required
+          />
+        </div>
+        <div className="input-group">
+          <label>Password</label>
+          <input
+            type="password"
+            className="input-field"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength="6"
+          />
+        </div>
+        
+        <button type="submit" className="btn" disabled={loading} style={{ marginTop: '8px' }}>
+          {loading ? 'Processing...' : isRegister ? 'Register' : 'Sign In'}
+        </button>
+      </form>
+
+      <div style={{ textAlign: 'center', margin: '16px 0', fontSize: '0.9rem' }}>
+        <button 
+          onClick={() => setIsRegister(!isRegister)} 
+          style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register"}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0' }}>
+        <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+        <span style={{ padding: '0 10px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>OR</span>
+        <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+      </div>
 
       <button 
         type="button" 
         className="btn" 
-        style={{ background: 'white', color: '#333', marginTop: '24px' }} 
+        style={{ background: 'white', color: '#333' }} 
         onClick={handleGoogleSignIn}
         disabled={loading}
       >

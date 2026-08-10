@@ -1,4 +1,4 @@
-import { collection, addDoc, query, onSnapshot, where, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, query, onSnapshot, where, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const GROUPS_COLLECTION = "groups";
@@ -30,6 +30,19 @@ export const addMemberToGroup = async (groupId, email) => {
     });
   } catch (error) {
     console.error("Error adding member: ", error);
+    throw error;
+  }
+};
+
+export const removeMemberFromGroup = async (groupId, email) => {
+  if (!db) return;
+  try {
+    const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+    await updateDoc(groupRef, {
+      members: arrayRemove(email.toLowerCase())
+    });
+  } catch (error) {
+    console.error("Error removing member: ", error);
     throw error;
   }
 };

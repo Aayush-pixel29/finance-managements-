@@ -42,22 +42,46 @@ export default function Sidebar({
           <h3 className="text-sm font-bold text-muted mb-2 flex items-center gap-1"><Folder size={14} /> My Groups</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {userGroups.map((group) => (
-              <button 
-                key={group.id}
-                onClick={() => onSelectGroup(group.id)}
-                className="btn"
-                style={{ 
-                  background: group.id === currentGroupId ? 'var(--primary)' : 'var(--card-bg)', 
-                  color: group.id === currentGroupId ? 'white' : 'var(--text)',
-                  border: group.id === currentGroupId ? 'none' : '1px solid var(--border)',
-                  justifyContent: 'flex-start',
-                  padding: '10px 16px',
-                  borderRadius: '12px',
-                  fontSize: '0.9rem'
-                }}
-              >
-                {group.name}
-              </button>
+              <div key={group.id} style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={() => onSelectGroup(group.id)}
+                  className="btn"
+                  style={{ 
+                    flex: 1,
+                    background: group.id === currentGroupId ? 'var(--primary)' : 'var(--card-bg)', 
+                    color: group.id === currentGroupId ? 'white' : 'var(--text)',
+                    border: group.id === currentGroupId ? 'none' : '1px solid var(--border)',
+                    justifyContent: 'flex-start',
+                    padding: '10px 16px',
+                    borderRadius: '12px',
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  {group.name}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (window.confirm(`Are you sure you want to leave ${group.name}?`)) {
+                      try {
+                        const { removeMemberFromGroup } = await import('../services/groupService');
+                        await removeMemberFromGroup(group.id, currentUser);
+                        // If they left the current group, switch to another one
+                        if (group.id === currentGroupId && userGroups.length > 1) {
+                          onSelectGroup(userGroups.find(g => g.id !== group.id).id);
+                        }
+                      } catch (e) {
+                        console.error(e);
+                        alert("Failed to leave group");
+                      }
+                    }
+                  }}
+                  className="btn btn-danger"
+                  style={{ width: '40px', padding: '0', justifyContent: 'center', borderRadius: '12px' }}
+                  title="Leave Group"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             ))}
             
             <button 
