@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { X, User, LogOut, Plus, Folder, UserPlus, Settings, Key } from 'lucide-react';
+import { X, User, LogOut, Plus, Folder, UserPlus } from 'lucide-react';
 import { addMemberToGroup } from '../services/groupService';
-import { getApiKey, setApiKey } from '../services/aiService';
 
 export default function Sidebar({ 
   isOpen, onClose, familyMembers, currentUser, onSelectUser, onLogout,
@@ -10,9 +9,6 @@ export default function Sidebar({
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState(getApiKey() || '');
 
   if (!isOpen) return null;
 
@@ -104,39 +100,6 @@ export default function Sidebar({
               <Plus size={16} /> Create Group
             </button>
           </div>
-        </div>
-
-        {/* --- AI SETTINGS SECTION --- */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 className="text-sm font-bold text-muted flex items-center gap-1"><Settings size={14} /> AI Settings</h3>
-            <button onClick={() => setShowSettings(!showSettings)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px' }}>
-               <Key size={16} />
-            </button>
-          </div>
-          {showSettings && (
-             <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '12px' }}>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Gemini API Key (Saved locally)</label>
-                <input 
-                  type="password" 
-                  className="input-field" 
-                  placeholder="AIzaSy..." 
-                  value={apiKeyInput} 
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  style={{ padding: '8px 12px' }}
-                />
-                <button 
-                  className="btn" 
-                  onClick={() => {
-                    setApiKey(apiKeyInput);
-                    alert("API Key saved securely in your browser.");
-                    setShowSettings(false);
-                  }} 
-                  style={{ width: '100%', padding: '8px 16px' }}>
-                  Save Key
-                </button>
-             </div>
-          )}
         </div>
 
 

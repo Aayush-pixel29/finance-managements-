@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { X, Receipt, PiggyBank, Users, RefreshCw, Camera, Loader } from 'lucide-react';
+import { X, Receipt, PiggyBank, Users, RefreshCw } from 'lucide-react';
 import { addExpense, addRecurringExpense } from '../services/expenseService';
-import { analyzeReceipt, hasApiKey } from '../services/aiService';
 
 export default function AddExpense({ currentUser, currentGroupId, onClose }) {
   const [type, setType] = useState('Expense');
@@ -13,7 +12,6 @@ export default function AddExpense({ currentUser, currentGroupId, onClose }) {
   const [isRecurring, setIsRecurring] = useState(false);
   
   const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
 
   const defaultSections = type === 'Expense' 
     ? ['Food', 'Transport', 'Utilities', 'Shopping', 'Entertainment', 'Health']
@@ -48,50 +46,6 @@ export default function AddExpense({ currentUser, currentGroupId, onClose }) {
     setLoading(false);
   };
 
-  const handleScanReceipt = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!hasApiKey()) {
-      alert("Please configure your Gemini API Key in the Sidebar settings first.");
-      return;
-    }
-
-    setScanning(true);
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = reader.result.split(',')[1];
-        const mimeType = file.type;
-        
-        try {
-          const aiData = await analyzeReceipt(base64Data, mimeType);
-          
-          if (aiData.amount) setAmount(aiData.amount.toString());
-          if (aiData.description) setDescription(aiData.description);
-          if (aiData.category) {
-            if (defaultSections.includes(aiData.category)) {
-              setSection(aiData.category);
-              setCustomSection('');
-            } else {
-              setSection('Custom');
-              setCustomSection(aiData.category);
-            }
-          }
-        } catch (aiErr) {
-          alert(aiErr.message);
-        } finally {
-          setScanning(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to read image");
-      setScanning(false);
-    }
-  };
-
   return (
     <div className="glass-card animate-slide-up" style={{ position: 'relative' }}>
       <button 
@@ -101,25 +55,7 @@ export default function AddExpense({ currentUser, currentGroupId, onClose }) {
         <X size={24} />
       </button>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h2 className="text-2xl font-bold" style={{ margin: 0 }}>New Entry</h2>
-        {type === 'Expense' && (
-          <div>
-             <input 
-               type="file" 
-               accept="image/*" 
-               capture="environment" 
-               id="receipt-upload" 
-               style={{ display: 'none' }} 
-               onChange={handleScanReceipt} 
-             />
-             <label htmlFor="receipt-upload" className="btn" style={{ cursor: 'pointer', background: 'rgba(37,99,235,0.1)', color: 'var(--primary)', padding: '6px 12px', fontSize: '0.85rem' }}>
-               {scanning ? <Loader size={16} className="animate-spin" /> : <Camera size={16} />}
-               {scanning ? 'Scanning...' : 'Scan Receipt'}
-             </label>
-          </div>
-        )}
-      </div>
+      <h2 className="text-2xl font-bold mb-6">New Entry</h2>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
         <button 
