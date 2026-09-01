@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Plus, Receipt, User, PiggyBank, TrendingDown, ChevronLeft, ChevronRight, Trash2, Download, Menu } from 'lucide-react';
+import { LogOut, Plus, Receipt, User, PiggyBank, TrendingDown, ChevronLeft, ChevronRight, Trash2, Download, Menu, Bot, X, Loader } from 'lucide-react';
 import { subscribeToExpenses, deleteExpense } from '../services/expenseService';
+import { getFinancialAdvice, hasApiKey } from '../services/aiService';
 import AddExpense from './AddExpense';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, isSameMonth, addMonths, subMonths } from 'date-fns';
@@ -12,6 +13,10 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 export default function Dashboard({ currentUser, onLogout, globalExpenses, onOpenMenu, currentGroupId, currentGroupName }) {
   const [showAdd, setShowAdd] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const [showCAAdvice, setShowCAAdvice] = useState(false);
+  const [caLoading, setCaLoading] = useState(false);
+  const [caAdvice, setCaAdvice] = useState('');
 
   // Use global expenses if provided (for bottom nav architecture), else use local state
   const [localExpenses, setLocalExpenses] = useState([]);
@@ -81,8 +86,63 @@ export default function Dashboard({ currentUser, onLogout, globalExpenses, onOpe
     doc.save(`Expenses_${monthStr}.pdf`);
   };
 
+  const handleAskCA = async () => {
+    if (!hasApiKey()) {
+      alert("Please configure your Gemini API Key in the Sidebar settings first.");
+      return;
+    }
+    setShowCAAdvice(true);
+    setCaLoading(true);
+    setCaAdvice('');
+    try {
+      const advice = await getFinancialAdvice(monthlyExpenses, monthlySavings, totalExpense, totalSavings);
+      setCaAdvice(advice);
+    } catch (err) {
+      setCaAdvice(err.message);
+    }
+    setCaLoading(false);
+  };
+
   if (showAdd) {
     return <AddExpense currentUser={currentUser} currentGroupId={currentGroupId} onClose={() => setShowAdd(false)} />;
+  }
+
+  if (showCAAdvice) {
+    return (
+      <div className="glass-card animate-slide-up" style={{ position: 'relative', minHeight: '100%', paddingBottom: '40px' }}>
+        <button 
+          onClick={() => setShowCAAdvice(false)} 
+          style={{ position: 'absolute', right: '16px', top: '16px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+        >
+          <X size={24} />
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+           <div style={{ background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', padding: '12px', borderRadius: '50%', color: 'white' }}>
+              <Bot size={24} />
+           </div>
+           <div>
+              <h2 className="text-2xl font-bold" style={{ margin: 0 }}>AI Chartered Accountant</h2>
+              <p className="text-muted" style={{ fontSize: '0.85rem' }}>Financial insights for {format(currentMonth, 'MMMM yyyy')}</p>
+           </div>
+        </div>
+        
+        {caLoading ? (
+           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', color: 'var(--primary)' }}>
+              <Loader className="animate-spin" size={40} style={{ marginBottom: '16px' }} />
+              <p>Analyzing your finances...</p>
+           </div>
+        ) : (
+           <div className="prose" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', color: 'var(--text)' }}>
+              {caAdvice.split('\n').map((line, i) => {
+                 if (line.startsWith('##')) return <h3 key={i} className="font-bold mt-4 mb-2" style={{ fontSize: '1.2rem', color: 'var(--primary)' }}>{line.replace(/##/g, '')}</h3>;
+                 if (line.startsWith('#')) return <h2 key={i} className="font-bold mt-4 mb-2" style={{ fontSize: '1.4rem' }}>{line.replace(/#/g, '')}</h2>;
+                 if (line.startsWith('* ') || line.startsWith('- ')) return <li key={i} style={{ marginLeft: '16px', marginBottom: '8px' }}>{line.substring(2).replace(/\*\*/g, '')}</li>;
+                 return <p key={i} style={{ marginBottom: '12px' }}>{line.replace(/\*\*/g, '')}</p>;
+              })}
+           </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -117,7 +177,10 @@ export default function Dashboard({ currentUser, onLogout, globalExpenses, onOpe
           </button>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn" style={{ width: 'auto', padding: '8px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)' }} onClick={exportPDF}>
+          <button className="btn" style={{ width: 'auto', padding: '8px', borderRadius: '12px', background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', color: 'white', border: 'none' }} onClick={handleAskCA} title="Ask AI CA">
+            <Bot size={16} />
+          </button>
+          <button className="btn" style={{ width: 'auto', padding: '8px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)' }} onClick={exportPDF} title="Download Report">
             <Download size={16} />
           </button>
           <button className="btn" style={{ width: 'auto', padding: '8px 16px', borderRadius: '12px' }} onClick={() => setShowAdd(true)}>
