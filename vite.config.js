@@ -13,8 +13,8 @@ export default defineConfig({
         name: 'Family Finance Manager',
         short_name: 'FamilyFinance',
         description: 'Private family expense management application with YC aesthetics',
-        theme_color: '#08080B',
-        background_color: '#08080B',
+        theme_color: '#f5f5f1',
+        background_color: '#f5f5f1',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

@@ -16,6 +16,7 @@ import {
   Home,
   Target,
   Users,
+  User,
   Plus,
   WifiOff,
   X
@@ -178,6 +179,14 @@ function MainAppContent() {
         >
           <Users size={22} />
           <span className="yc-dock-label">Balances</span>
+        </button>
+
+        <button
+          onClick={() => setSelectedProfileUser(currentUser)}
+          className={`yc-dock-tab ${selectedProfileUser ? 'active' : ''}`}
+        >
+          <User size={22} />
+          <span className="yc-dock-label">Profile</span>
         </button>
       </nav>
 
