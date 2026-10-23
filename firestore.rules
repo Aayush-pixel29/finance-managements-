@@ -1,53 +1,139 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function getUserEmail() {
-      // Fallback to lowercase to ensure consistency with our arrays
-      return request.auth.token.email.lower();
+
+    function isAuthenticated() {
+      return request.auth != null;
     }
-    
+
+    function getUserEmail() {
+      return (request.auth != null && request.auth.token.email != null) ? request.auth.token.email.lower() : '';
+    }
+
     function isGroupMember(groupId) {
-      return getUserEmail() in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+      return isAuthenticated() &&
+        getUserEmail() != '' &&
+        groupId != null &&
+        exists(/databases/$(database)/documents/groups/$(groupId)) &&
+        getUserEmail() in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
     }
 
     match /users/{userId} {
-      // Users can only write their own profile document
-      allow read, write: if request.auth != null && getUserEmail() == userId;
+      // Users can read/write user profiles
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && getUserEmail() == userId;
     }
-    
+
     match /groups/{groupId} {
-      // User can create a group if they are logged in
-      allow create: if request.auth != null;
-      // User can read or update a group if their email is in the members array
-      allow read, update, delete: if request.auth != null && (getUserEmail() in resource.data.members);
+      // Read: Any member or creator of the group can read the group document
+      allow read: if isAuthenticated() &&
+                    getUserEmail() != '' &&
+                    (getUserEmail() in resource.data.members || resource.data.createdBy == getUserEmail());
+
+      // Create: User must be authenticated, include themselves in members, and be the declared creator
+      allow create: if isAuthenticated() &&
+                    request.resource.data.name is string &&
+                    request.resource.data.name.size() > 0 &&
+                    request.resource.data.name.size() <= 100 &&
+                    request.resource.data.members is list &&
+                    request.resource.data.members.size() > 0 &&
+                    request.resource.data.members.size() <= 50 &&
+                    getUserEmail() in request.resource.data.members &&
+                    request.resource.data.createdBy == getUserEmail();
+
+      // Update: User must be a current member, CANNOT change createdBy (prevents group takeover),
+      // CANNOT remove the creator from the group, and members list must be bounded
+      allow update: if isAuthenticated() &&
+                    getUserEmail() in resource.data.members &&
+                    request.resource.data.createdBy == resource.data.createdBy &&
+                    resource.data.createdBy in request.resource.data.members &&
+                    request.resource.data.members is list &&
+                    request.resource.data.members.size() > 0 &&
+                    request.resource.data.members.size() <= 50 &&
+                    request.resource.data.name is string &&
+                    request.resource.data.name.size() > 0 &&
+                    request.resource.data.name.size() <= 100;
+
+      // Delete: Strictly only the original creator can delete the group
+      allow delete: if isAuthenticated() &&
+                    resource.data.createdBy == getUserEmail();
     }
 
     match /expenses/{expenseId} {
-      // To create an expense, user must be a member of the new expense's group
-      allow create: if request.auth != null && isGroupMember(request.resource.data.groupId);
-      allow read, delete: if request.auth != null && isGroupMember(resource.data.groupId);
-      allow update: if request.auth != null 
-                    && isGroupMember(resource.data.groupId) 
-                    && request.resource.data.groupId == resource.data.groupId;
+      // Read: Any member of the group can view group transactions
+      allow read: if isGroupMember(resource.data.groupId);
+
+      // Create:
+      // 1. Must be verified group member
+      // 2. paidBy MUST equal authenticated user (prevents forging expenses for others)
+      // 3. Strict schema & bounds validation
+      allow create: if isGroupMember(request.resource.data.groupId) &&
+                    request.resource.data.paidBy == getUserEmail() &&
+                    request.resource.data.amount is number &&
+                    request.resource.data.amount > 0 &&
+                    request.resource.data.amount < 100000000 &&
+                    request.resource.data.description is string &&
+                    request.resource.data.description.size() <= 200 &&
+                    request.resource.data.section is string &&
+                    request.resource.data.section.size() <= 50 &&
+                    request.resource.data.type in ['Expense', 'Savings', 'Settlement'] &&
+                    request.resource.data.isShared is bool &&
+                    (request.resource.data.splitMembers == null || (request.resource.data.splitMembers is list && request.resource.data.splitMembers.size() <= 50));
+
+      // Update: Only the payer who created the transaction can edit it, maintaining original payer and group
+      allow update: if isGroupMember(resource.data.groupId) &&
+                    resource.data.paidBy == getUserEmail() &&
+                    request.resource.data.groupId == resource.data.groupId &&
+                    request.resource.data.paidBy == resource.data.paidBy &&
+                    request.resource.data.amount is number &&
+                    request.resource.data.amount > 0 &&
+                    request.resource.data.amount < 100000000 &&
+                    request.resource.data.description is string &&
+                    request.resource.data.description.size() <= 200 &&
+                    request.resource.data.section is string &&
+                    request.resource.data.section.size() <= 50;
+
+      // Delete: Strictly only the payer can delete their transaction
+      allow delete: if isGroupMember(resource.data.groupId) &&
+                    resource.data.paidBy == getUserEmail();
     }
 
     match /budgets/{budgetId} {
-      allow create: if request.auth != null && isGroupMember(request.resource.data.groupId);
-      allow read, delete: if request.auth != null && isGroupMember(resource.data.groupId);
-      allow update: if request.auth != null 
-                    && isGroupMember(resource.data.groupId) 
-                    && request.resource.data.groupId == resource.data.groupId;
+      allow create, update: if isGroupMember(request.resource.data.groupId) &&
+                            request.resource.data.amount is number &&
+                            request.resource.data.amount >= 0 &&
+                            request.resource.data.amount < 100000000 &&
+                            request.resource.data.section is string &&
+                            request.resource.data.section.size() <= 50;
+
+      allow read, delete: if isGroupMember(resource.data.groupId);
     }
-    
+
     match /recurring_expenses/{id} {
-      allow create: if request.auth != null && isGroupMember(request.resource.data.groupId);
-      allow read, delete: if request.auth != null && isGroupMember(resource.data.groupId);
-      allow update: if request.auth != null 
-                    && isGroupMember(resource.data.groupId) 
-                    && request.resource.data.groupId == resource.data.groupId;
+      allow read: if isGroupMember(resource.data.groupId);
+
+      // Create: Payer must be authenticated user
+      allow create: if isGroupMember(request.resource.data.groupId) &&
+                    request.resource.data.paidBy == getUserEmail() &&
+                    request.resource.data.amount is number &&
+                    request.resource.data.amount > 0 &&
+                    request.resource.data.amount < 100000000 &&
+                    request.resource.data.description is string &&
+                    request.resource.data.description.size() <= 200 &&
+                    request.resource.data.section is string &&
+                    request.resource.data.section.size() <= 50;
+
+      // Update: Only the owner can update recurring rules
+      allow update: if isGroupMember(resource.data.groupId) &&
+                    resource.data.paidBy == getUserEmail() &&
+                    request.resource.data.groupId == resource.data.groupId &&
+                    request.resource.data.paidBy == resource.data.paidBy;
+
+      // Delete: Strictly only the owner can delete recurring rules
+      allow delete: if isGroupMember(resource.data.groupId) &&
+                    resource.data.paidBy == getUserEmail();
     }
-    
+
     match /{document=**} {
       allow read, write: if false; // Deny all other access by default
     }

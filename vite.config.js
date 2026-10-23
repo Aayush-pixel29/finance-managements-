@@ -8,13 +8,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg', 'pwa-icon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'Family Expense Manager',
-        short_name: 'Expenses',
-        description: 'Private family expense management application',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        name: 'Family Finance Manager',
+        short_name: 'FamilyFinance',
+        description: 'Private family expense management application with YC aesthetics',
+        theme_color: '#08080B',
+        background_color: '#08080B',
         display: 'standalone',
+        orientation: 'portrait',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -24,10 +26,32 @@ export default defineConfig({
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/firebase')) {
+            return 'vendor_firebase';
+          }
+          if (id.includes('node_modules/recharts')) {
+            return 'vendor_charts';
+          }
+          if (id.includes('node_modules/jspdf') || id.includes('node_modules/jspdf-autotable')) {
+            return 'vendor_pdf';
+          }
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor_icons';
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 800
+  }
 })

@@ -1,159 +1,148 @@
-import React, { useState } from 'react';
-import { X, Receipt, PiggyBank, Users, RefreshCw } from 'lucide-react';
-import { addExpense, addRecurringExpense } from '../services/expenseService';
+import React, { useEffect, useState } from 'react';
+import { format } from 'date-fns';
+import { ArrowRightLeft, Check, ChevronDown, CreditCard, PiggyBank, ReceiptText, Smartphone, Wallet, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useGroup } from '../context/GroupContext';
+import { useExpenses } from '../context/ExpenseContext';
 
-export default function AddExpense({ currentUser, currentGroupId, onClose }) {
-  const [type, setType] = useState('Expense');
+const expenseCategories = ['Food & Dining', 'Shopping & Groceries', 'Transport & Fuel', 'Bills & Utilities', 'Health & Pharmacy', 'Entertainment', 'Education & Fees', 'General'];
+const savingCategories = ['Emergency Fund', 'Fixed Deposit / Mutual Fund', 'Savings / Gold', 'General'];
+const quickAmounts = [100, 500, 1000, 2000];
+const paymentMethods = [
+  { id: 'UPI', label: 'UPI', icon: Smartphone },
+  { id: 'Card', label: 'Card', icon: CreditCard },
+  { id: 'Cash', label: 'Cash', icon: Wallet }
+];
+
+export default function AddExpense({ onClose }) {
+  const { currentUser } = useAuth();
+  const { groupMembers } = useGroup();
+  const { addExpense, recordSettlement } = useExpenses();
+  const [kind, setKind] = useState('Expense');
   const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [section, setSection] = useState('Food');
-  const [customSection, setCustomSection] = useState('');
-  const [isShared, setIsShared] = useState(true);
-  const [isRecurring, setIsRecurring] = useState(false);
-  
+  const [note, setNote] = useState('');
+  const [category, setCategory] = useState(expenseCategories[0]);
+  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [method, setMethod] = useState('UPI');
+  const [shared, setShared] = useState(false);
+  const [members, setMembers] = useState([currentUser]);
+  const [recipient, setRecipient] = useState('');
+  const [recurring, setRecurring] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const defaultSections = type === 'Expense' 
-    ? ['Food', 'Transport', 'Utilities', 'Shopping', 'Entertainment', 'Health']
-    : ['Emergency Fund', 'Retirement', 'Investment', 'Vacation', 'Education'];
+  useEffect(() => {
+    setMembers((current) => current.filter((member) => groupMembers.includes(member)).length ? current.filter((member) => groupMembers.includes(member)) : [currentUser]);
+  }, [currentUser, groupMembers]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    const finalSection = customSection || section;
-    const expenseData = {
-      amount: parseFloat(amount),
-      description,
-      section: finalSection,
-      type,
-      isShared,
-      paidBy: currentUser
-    };
-
-    try {
-      if (isRecurring) {
-        await addRecurringExpense(expenseData, currentUser, currentGroupId);
-        await addExpense(expenseData, currentUser, currentGroupId);
-      } else {
-        await addExpense(expenseData, currentUser, currentGroupId);
-      }
-      onClose();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to add entry");
-    }
-    setLoading(false);
+  const chooseKind = (nextKind) => {
+    setKind(nextKind);
+    setError('');
+    setShared(false);
+    setMembers([currentUser]);
+    setRecurring(false);
+    setCategory(nextKind === 'Savings' ? savingCategories[0] : expenseCategories[0]);
   };
 
+  const toggleMember = (member) => {
+    setMembers((current) => current.includes(member)
+      ? current.length > 1 ? current.filter((item) => item !== member) : current
+      : [...current, member]);
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setError('');
+    const cleanAmount = Number(amount);
+    if (!Number.isFinite(cleanAmount) || cleanAmount <= 0) {
+      setError('Enter an amount greater than ₹0.');
+      return;
+    }
+    if (kind === 'Settlement' && !recipient) {
+      setError('Choose who received this payment.');
+      return;
+    }
+    setLoading(true);
+    try {
+      if (kind === 'Settlement') {
+        await recordSettlement(recipient, cleanAmount);
+      } else {
+        await addExpense({
+          amount: cleanAmount,
+          description: note.trim() || category,
+          section: category,
+          type: kind,
+          isShared: shared,
+          splitMembers: shared ? members : [currentUser],
+          paymentMethod: method,
+          // Noon avoids serialising an Indian local date as the previous UTC day.
+          createdAt: new Date(`${date}T12:00:00`).toISOString()
+        }, recurring);
+      }
+      onClose();
+    } catch (submitError) {
+      setError(submitError.message || 'We could not save this transaction. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const categories = kind === 'Savings' ? savingCategories : expenseCategories;
+
   return (
-    <div className="glass-card animate-slide-up" style={{ position: 'relative' }}>
-      <button 
-        onClick={onClose} 
-        style={{ position: 'absolute', right: '16px', top: '16px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-      >
-        <X size={24} />
-      </button>
-      
-      <h2 className="text-2xl font-bold mb-6">New Entry</h2>
+    <div className="yc-modal-backdrop" onClick={onClose} role="presentation">
+      <section className="yc-bottom-sheet transaction-sheet" onClick={(event) => event.stopPropagation()} aria-label="Add transaction">
+        <header className="sheet-header">
+          <div><span className="eyebrow">New entry</span><h2>What happened?</h2></div>
+          <button className="btn-yc-icon" type="button" onClick={onClose} aria-label="Close"><X size={19} /></button>
+        </header>
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-        <button 
-          className="btn" 
-          style={{ flex: 1, background: type === 'Expense' ? 'rgba(239, 68, 68, 0.2)' : 'transparent', color: type === 'Expense' ? 'var(--danger)' : 'var(--text-muted)', border: `1px solid ${type === 'Expense' ? 'var(--danger)' : 'var(--border)'}` }}
-          onClick={() => setType('Expense')}
-        >
-          <Receipt size={18} /> Expense
-        </button>
-        <button 
-          className="btn" 
-          style={{ flex: 1, background: type === 'Savings' ? 'rgba(16, 185, 129, 0.2)' : 'transparent', color: type === 'Savings' ? 'var(--success)' : 'var(--text-muted)', border: `1px solid ${type === 'Savings' ? 'var(--success)' : 'var(--border)'}` }}
-          onClick={() => setType('Savings')}
-        >
-          <PiggyBank size={18} /> Savings
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <div className="input-group">
-          <label>Amount (₹)</label>
-          <input
-            type="number"
-            step="0.01"
-            className="input-field"
-            placeholder="0.00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            required
-            autoFocus
-          />
+        <div className="transaction-type-picker" role="tablist" aria-label="Transaction type">
+          <button type="button" className={kind === 'Expense' ? 'active' : ''} onClick={() => chooseKind('Expense')}><ReceiptText size={17} /> Expense</button>
+          <button type="button" className={kind === 'Savings' ? 'active savings' : ''} onClick={() => chooseKind('Savings')}><PiggyBank size={17} /> Save</button>
+          <button type="button" className={kind === 'Settlement' ? 'active settle' : ''} onClick={() => chooseKind('Settlement')}><ArrowRightLeft size={17} /> Settle</button>
         </div>
 
-        <div className="input-group">
-          <label>Description</label>
-          <input
-            type="text"
-            className="input-field"
-            placeholder="What was this for?"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="input-group">
-          <label>Category</label>
-          <select 
-            className="input-field" 
-            value={section} 
-            onChange={(e) => {
-              setSection(e.target.value);
-              if (e.target.value !== 'Custom') setCustomSection('');
-            }}
-          >
-            {defaultSections.map(s => <option key={s} value={s}>{s}</option>)}
-            <option value="Custom">Other (Custom...)</option>
-          </select>
-        </div>
-
-        {section === 'Custom' && (
-          <div className="input-group animate-slide-up">
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Enter custom category"
-              value={customSection}
-              onChange={(e) => setCustomSection(e.target.value)}
-              required
-            />
+        <form onSubmit={submit}>
+          <div className="amount-field">
+            <label htmlFor="amount">Amount</label>
+            <div><span>₹</span><input id="amount" type="number" inputMode="decimal" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" autoFocus /></div>
+            <div className="quick-amounts">{quickAmounts.map((quickAmount) => <button key={quickAmount} type="button" onClick={() => setAmount(String(quickAmount))}>₹{quickAmount.toLocaleString('en-IN')}</button>)}</div>
           </div>
-        )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px', marginBottom: '24px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text)' }}>
-            <input 
-              type="checkbox" 
-              checked={isShared} 
-              onChange={(e) => setIsShared(e.target.checked)} 
-              style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
-            />
-            <Users size={16} color="var(--primary)" /> Shared Family Expense (Split equally)
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text)' }}>
-            <input 
-              type="checkbox" 
-              checked={isRecurring} 
-              onChange={(e) => setIsRecurring(e.target.checked)} 
-              style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
-            />
-            <RefreshCw size={16} color="var(--primary)" /> Recurring Monthly Expense
-          </label>
-        </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
 
-        <button type="submit" className="btn" disabled={loading}>
-          {loading ? 'Adding...' : 'Add Entry'}
-        </button>
-      </form>
+          {kind === 'Settlement' ? (
+            <div className="input-block">
+              <label className="input-caption" htmlFor="recipient">I paid</label>
+              <select id="recipient" className="input-yc" value={recipient} onChange={(event) => setRecipient(event.target.value)}>
+                <option value="">Choose a person</option>
+                {groupMembers.filter((member) => member !== currentUser).map((member) => <option key={member} value={member}>{member.split('@')[0]}</option>)}
+              </select>
+              <p className="field-help">This reduces the amount you owe that person.</p>
+            </div>
+          ) : (
+            <>
+              <div className="input-block"><label className="input-caption" htmlFor="note">What was it for? <em>Optional</em></label><input id="note" className="input-yc" value={note} onChange={(event) => setNote(event.target.value)} placeholder={kind === 'Savings' ? 'e.g. Monthly SIP' : 'e.g. Sunday groceries'} maxLength={200} /></div>
+              <div className="input-block"><label className="input-caption">Category</label><div className="category-picker">{categories.map((item) => <button type="button" key={item} className={category === item ? 'selected' : ''} onClick={() => setCategory(item)}>{category === item && <Check size={13} />}{item}</button>)}</div></div>
+
+              {kind === 'Expense' && groupMembers.length > 1 && <div className="split-card">
+                <div><strong>Split this expense?</strong><p>{shared ? `Shared by ${members.length} people` : 'Only you are charged'}</p></div>
+                <button type="button" className={shared ? 'switch on' : 'switch'} onClick={() => { setShared(!shared); if (!shared) setMembers(groupMembers); }} aria-pressed={shared}><i /></button>
+                {shared && <div className="member-picker">{groupMembers.map((member) => <button type="button" key={member} className={members.includes(member) ? 'selected' : ''} onClick={() => toggleMember(member)}>{members.includes(member) && <Check size={12} />}{member === currentUser ? 'You' : member.split('@')[0]}</button>)}</div>}
+              </div>}
+            </>
+          )}
+
+          {kind !== 'Settlement' && <div className="advanced-area">
+            <button className="advanced-toggle" type="button" onClick={() => setAdvancedOpen(!advancedOpen)} aria-expanded={advancedOpen}>More details <ChevronDown size={16} className={advancedOpen ? 'open' : ''} /></button>
+            {advancedOpen && <div className="advanced-fields"><div className="input-block"><label className="input-caption" htmlFor="date">Date</label><input id="date" className="input-yc" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div><div className="input-block"><label className="input-caption">Paid with</label><div className="method-picker">{paymentMethods.map(({ id, label, icon: Icon }) => <button type="button" key={id} className={method === id ? 'selected' : ''} onClick={() => setMethod(id)}><Icon size={15} />{label}</button>)}</div></div><label className="recurring-control"><input type="checkbox" checked={recurring} onChange={(event) => setRecurring(event.target.checked)} />Repeat every month</label></div>}
+          </div>}
+
+          <button className="btn-yc-primary save-transaction" type="submit" disabled={loading}>{loading ? 'Saving…' : kind === 'Settlement' ? 'Record payment' : `Save ${kind.toLowerCase()}`}</button>
+        </form>
+      </section>
     </div>
   );
 }
